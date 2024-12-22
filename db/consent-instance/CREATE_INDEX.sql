@@ -1,0 +1,1 @@
+CREATE INDEX IF NOT EXISTS consent_instance_idx ON consent_instance (id);

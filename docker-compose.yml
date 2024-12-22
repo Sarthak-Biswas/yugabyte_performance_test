@@ -1,0 +1,110 @@
+# This docker compose file creates a 3 node yugabyte db cluster on local
+# [NOTE]: Not a suitable configuration for Production deployment
+
+services:
+
+  yugabyte-node-1:
+    image: yugabytedb/yugabyte:latest
+    container_name: yugabyte-node-1
+    hostname: yugabyte-node-1
+    ports:
+      - "15433:15433"
+      - "5433:5433"
+      - "13000:13000"
+    volumes:
+      - "./volumes/node-1:/home/yugabyte/yb_data"
+    networks:
+      - yuga-net
+    command: bin/yugabyted start --base_dir=/home/yugabyte/yb_data --background=false
+
+  yugabyte-node-2:
+    image: yugabytedb/yugabyte:latest
+    container_name: yugabyte-node-2
+    hostname: yugabyte-node-2
+    ports:
+      - "15434:15433"
+      - "5434:5433"
+      - "13001:13000"
+    volumes:
+      - "./volumes/node-2:/home/yugabyte/yb_data"
+    networks:
+      - yuga-net
+    command: /bin/sh -c "sleep 30 && bin/yugabyted start --join=yugabyte-node-1 --base_dir=/home/yugabyte/yb_data --background=false"
+    depends_on:
+      - yugabyte-node-1
+
+  yugabyte-node-3:
+    image: yugabytedb/yugabyte:latest
+    container_name: yugabyte-node-3
+    hostname: yugabyte-node-3
+    ports:
+      - "15435:15433"
+      - "5435:5433"
+      - "13002:13000"
+    volumes:
+      - "./volumes/node-3:/home/yugabyte/yb_data"
+    networks:
+      - yuga-net
+    command: /bin/sh -c "sleep 45 && bin/yugabyted start --join=yugabyte-node-1 --base_dir=/home/yugabyte/yb_data --background=false"
+    depends_on:
+      - yugabyte-node-1
+
+####################### Proxy Part ########################################################################
+
+  # proxy-node-1:
+  #   image: nginx:latest
+  #   container_name: proxy-node-1
+  #   hostname: proxy-node-1
+  #   networks:
+  #     - yuga-net
+  #   volumes:
+  #       - './load_balancer/nginx/proxy1/nginx.conf:/etc/nginx/nginx.conf:ro'
+  #   depends_on:
+  #     - yugabyte-node-1
+
+  # proxy-node-2:
+  #   image: nginx:latest
+  #   container_name: proxy-node-2
+  #   hostname: proxy-node-2
+  #   networks:
+  #     - yuga-net
+  #   volumes:
+  #       - './load_balancer/nginx/proxy2/nginx.conf:/etc/nginx/nginx.conf:ro'
+  #   depends_on:
+  #     - yugabyte-node-2
+
+  # proxy-node-3:
+  #   image: nginx:latest
+  #   container_name: proxy-node-3
+  #   hostname: proxy-node-3
+  #   networks:
+  #     - yuga-net
+  #   volumes:
+  #       - './load_balancer/nginx/proxy3/nginx.conf:/etc/nginx/nginx.conf:ro'
+  #   depends_on:
+  #     - yugabyte-node-3
+
+####################### Load Balancer Part ########################################################################
+
+  nginx-loadbalancer:
+    image: nginx:latest
+    container_name: loadbalancer
+    hostname: loadbalancer
+    ports:
+      - '5432:5432'
+    networks:
+      - yuga-net
+    volumes:
+        # - './load_balancer/nginx/lb/nginx.conf:/etc/nginx/nginx.conf:ro'
+        - './load_balancer/nginx/no-proxy-lb/nginx.conf:/etc/nginx/nginx.conf:ro'
+    depends_on:
+      # - proxy-node-1
+      # - proxy-node-2
+      # - proxy-node-3
+      - yugabyte-node-1
+      - yugabyte-node-2
+      - yugabyte-node-3
+
+networks:
+  yuga-net:
+    driver: bridge
